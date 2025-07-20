@@ -1,0 +1,259 @@
+import React, { useState } from 'react';
+
+// Main App component for Concrete Material Calculator
+const App = () => {
+  // State variables for user inputs
+  const [concreteVolume, setConcreteVolume] = useState(''); // Desired concrete volume in cubic meters
+  const [mixRatio, setMixRatio] = useState('1:2:4'); // Selected standard mix ratio (Cement:Sand:Stone)
+  // State variables for custom mix ratio
+  const [customRatioC, setCustomRatioC] = useState(''); // Custom cement ratio
+  const [customRatioS, setCustomRatioS] = useState(''); // Custom sand ratio
+  const [customRatioG, setCustomRatioG] = useState(''); // Custom gravel/stone ratio
+  const [results, setResults] = useState(null); // Stores calculation results
+  const [showCustomRatio, setShowCustomRatio] = useState(false); // Controls visibility of custom ratio inputs
+
+  // Function to handle the calculation of concrete materials
+  const calculateMaterials = () => {
+    let c, s, g; // Variables to hold the parsed mix ratio components
+
+    // Determine which ratio to use: standard or custom
+    if (showCustomRatio) {
+      c = parseFloat(customRatioC);
+      s = parseFloat(customRatioS);
+      g = parseFloat(customRatioG);
+    } else {
+      const ratioParts = mixRatio.split(':').map(Number);
+      c = ratioParts[0];
+      s = ratioParts[1];
+      g = ratioParts[2];
+    }
+
+    const volume = parseFloat(concreteVolume); // Parse the input concrete volume
+
+    // Input validation: Check if inputs are valid numbers and positive
+    if (isNaN(volume) || volume <= 0 || isNaN(c) || isNaN(s) || isNaN(g) || c <= 0 || s <= 0 || g <= 0) {
+      setResults({ error: 'กรุณาป้อนข้อมูลให้ถูกต้องและครบถ้วน (ปริมาตรคอนกรีตและอัตราส่วนผสมต้องเป็นตัวเลขบวก)' });
+      return;
+    }
+
+    const sumOfRatios = c + s + g; // Sum of the ratio parts
+    // Empirical factor for total loose dry material volume needed per 1 cubic meter of compacted concrete.
+    // This value (1.55) is a common approximation used in general civil engineering practice and aligns with
+    // simplified estimations under มยผ (Department of Public Works and Town & Country Planning) guidelines.
+    // Actual values can vary based on specific material properties and detailed mix designs.
+    const totalLooseVolumeFactorPerCubicMeterConcrete = 1.55; // cubic meters of loose dry materials per 1 cubic meter of concrete
+
+    // Calculate the volume factor for each part of the ratio
+    const volumeFactorPerRatioPart = totalLooseVolumeFactorPerCubicMeterConcrete / sumOfRatios;
+
+    // Calculate the volume of each material required per 1 cubic meter of concrete
+    const cementVolumePerCubicMeterConcrete = c * volumeFactorPerRatioPart;
+    const sandVolumePerCubicMeterConcrete = s * volumeFactorPerRatioPart;
+    const stoneVolumePerCubicMeterConcrete = g * volumeFactorPerRatioPart;
+
+    // Calculate the total volume of each material needed for the specified concrete volume
+    const totalCementVolume = cementVolumePerCubicMeterConcrete * volume;
+    const totalSandVolume = sandVolumePerCubicMeterConcrete * volume;
+    const totalStoneVolume = stoneVolumePerCubicMeterConcrete * volume;
+
+    // Convert cement volume to kilograms and 50kg bags
+    // Standard density of cement is approximately 1440 kg/m³
+    const cementDensityKgPerM3 = 1440;
+    const totalCementKg = totalCementVolume * cementDensityKgPerM3;
+    const totalCementBags = totalCementKg / 50;
+
+    // Set the results state for display
+    setResults({
+      concreteVolume: volume,
+      mixRatio: showCustomRatio ? `${c}:${s}:${g}` : mixRatio, // Display selected or custom ratio
+      cementKg: totalCementKg.toFixed(2), // Cement in kg, rounded to 2 decimal places
+      cementBags: totalCementBags.toFixed(2), // Cement in 50kg bags, rounded to 2 decimal places
+      sandM3: totalSandVolume.toFixed(2), // Sand in m³, rounded to 2 decimal places
+      stoneM3: totalStoneVolume.toFixed(2), // Stone in m³, rounded to 2 decimal places
+      // Detailed breakdown of the calculation process
+      details: [
+        `ปริมาตรคอนกรีตที่ต้องการ: ${volume} ลูกบาศก์เมตร`,
+        `อัตราส่วนผสม (ปูนซีเมนต์:ทราย:หิน): ${showCustomRatio ? `${c}:${s}:${g}` : mixRatio}`,
+        `ผลรวมอัตราส่วน: ${sumOfRatios}`,
+        `ปริมาตรรวมวัสดุแห้งหลวมที่ใช้ต่อ 1 ลบ.ม. คอนกรีต: ${totalLooseVolumeFactorPerCubicMeterConcrete} ลบ.ม. (ค่าประมาณตามหลักเกณฑ์ มยผ.)`,
+        `ค่าตัวคูณปริมาตรต่อ 1 ส่วน: ${volumeFactorPerRatioPart.toFixed(4)} ลบ.ม.`,
+        `ปริมาตรปูนซีเมนต์ต่อ 1 ลบ.ม. คอนกรีต: ${cementVolumePerCubicMeterConcrete.toFixed(4)} ลบ.ม.`,
+        `ปริมาตรทรายต่อ 1 ลบ.ม. คอนกรีต: ${sandVolumePerCubicMeterConcrete.toFixed(4)} ลบ.ม.`,
+        `ปริมาตรหินต่อ 1 ลบ.ม. คอนกรีต: ${stoneVolumePerCubicMeterConcrete.toFixed(4)} ลบ.ม.`,
+      ]
+    });
+  };
+
+  return (
+    // Main container with responsive styling and Inter font
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4 font-inter">
+      {/* Card-like container for the calculator */}
+      <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-2xl">
+        <h1 className="text-3xl font-bold text-center text-gray-800 mb-6">
+          คำนวณปริมาณวัสดุมวลรวมคอนกรีต
+        </h1>
+
+        {/* Input Section */}
+        <div className="mb-6">
+          <label htmlFor="concreteVolume" className="block text-gray-700 text-sm font-semibold mb-2">
+            ปริมาตรคอนกรีตที่ต้องการ (ลูกบาศก์เมตร)
+          </label>
+          <input
+            type="number"
+            id="concreteVolume"
+            className="shadow-sm appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 ease-in-out"
+            value={concreteVolume}
+            onChange={(e) => setConcreteVolume(e.target.value)}
+            placeholder="เช่น 10.5"
+            min="0.01" // Minimum value for concrete volume
+            step="0.01" // Step for increment/decrement
+          />
+        </div>
+
+        <div className="mb-6">
+          <label htmlFor="mixRatio" className="block text-gray-700 text-sm font-semibold mb-2">
+            เลือกอัตราส่วนผสม (ปูนซีเมนต์:ทราย:หิน)
+          </label>
+          <div className="relative">
+            <select
+              id="mixRatio"
+              className="block appearance-none w-full bg-white border border-gray-300 text-gray-700 py-3 px-4 pr-8 rounded-lg shadow-sm leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 ease-in-out"
+              value={mixRatio}
+              onChange={(e) => {
+                setMixRatio(e.target.value);
+                // Show custom ratio inputs if 'custom' option is selected
+                setShowCustomRatio(e.target.value === 'custom');
+              }}
+            >
+              {/* Standard mix ratio options */}
+              <option value="1:1.5:3">1:1.5:3 (คอนกรีตโครงสร้าง, 240-280 ksc)</option>
+              <option value="1:2:4">1:2:4 (คอนกรีตทั่วไป, 180-210 ksc)</option>
+              <option value="1:3:5">1:3:5 (คอนกรีตหยาบ, 150-180 ksc)</option>
+              <option value="custom">กำหนดเอง</option> {/* Option for custom ratio */}
+            </select>
+            {/* Dropdown arrow icon */}
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+              <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+              </svg>
+            </div>
+          </div>
+
+          {/* Custom Ratio Input Fields (conditionally rendered) */}
+          {showCustomRatio && (
+            <div className="mt-4 grid grid-cols-3 gap-4">
+              <div>
+                <label htmlFor="customC" className="block text-gray-700 text-sm font-semibold mb-2">
+                  ปูนซีเมนต์ (ส่วน)
+                </label>
+                <input
+                  type="number"
+                  id="customC"
+                  className="shadow-sm appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 ease-in-out"
+                  value={customRatioC}
+                  onChange={(e) => setCustomRatioC(e.target.value)}
+                  placeholder="เช่น 1"
+                  min="0.01"
+                  step="0.01"
+                />
+              </div>
+              <div>
+                <label htmlFor="customS" className="block text-gray-700 text-sm font-semibold mb-2">
+                  ทราย (ส่วน)
+                </label>
+                <input
+                  type="number"
+                  id="customS"
+                  className="shadow-sm appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 ease-in-out"
+                  value={customRatioS}
+                  onChange={(e) => setCustomRatioS(e.target.value)}
+                  placeholder="เช่น 2"
+                  min="0.01"
+                  step="0.01"
+                />
+              </div>
+              <div>
+                <label htmlFor="customG" className="block text-gray-700 text-sm font-semibold mb-2">
+                  หิน (ส่วน)
+                </label>
+                <input
+                  type="number"
+                  id="customG"
+                  className="shadow-sm appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 ease-in-out"
+                  value={customRatioG}
+                  onChange={(e) => setCustomRatioG(e.target.value)}
+                  placeholder="เช่น 4"
+                  min="0.01"
+                  step="0.01"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Calculate Button */}
+        <button
+          onClick={calculateMaterials}
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75"
+        >
+          คำนวณปริมาณวัสดุ
+        </button>
+
+        {/* Results Section (conditionally rendered after calculation) */}
+        {results && (
+          <div className="mt-8 p-6 bg-blue-50 rounded-xl shadow-inner border border-blue-200">
+            <h2 className="text-2xl font-bold text-blue-800 mb-4 text-center">ผลการคำนวณ</h2>
+            {results.error ? (
+              // Display error message if any
+              <p className="text-red-600 text-center text-lg">{results.error}</p>
+            ) : (
+              <>
+                {/* Summary of inputs */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-lg mb-6">
+                  <div className="bg-white p-4 rounded-lg shadow-sm border border-blue-100">
+                    <p className="text-gray-600">ปริมาตรคอนกรีต:</p>
+                    <p className="font-semibold text-blue-700">{results.concreteVolume} ลูกบาศก์เมตร</p>
+                  </div>
+                  <div className="bg-white p-4 rounded-lg shadow-sm border border-blue-100">
+                    <p className="text-gray-600">อัตราส่วนผสม:</p>
+                    <p className="font-semibold text-blue-700">{results.mixRatio}</p>
+                  </div>
+                </div>
+
+                {/* Calculated material quantities */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-lg mb-6">
+                  <div className="bg-white p-4 rounded-lg shadow-sm border border-blue-100">
+                    <p className="text-gray-600">ปูนซีเมนต์:</p>
+                    <p className="font-semibold text-green-700">{results.cementKg} กิโลกรัม</p>
+                    <p className="font-semibold text-green-700">({results.cementBags} ถุง 50 กก.)</p>
+                  </div>
+                  <div className="bg-white p-4 rounded-lg shadow-sm border border-blue-100">
+                    <p className="text-gray-600">ทราย:</p>
+                    <p className="font-semibold text-green-700">{results.sandM3} ลูกบาศก์เมตร</p>
+                  </div>
+                  <div className="bg-white p-4 rounded-lg shadow-sm border border-blue-100">
+                    <p className="text-gray-600">หิน:</p>
+                    <p className="font-semibold text-green-700">{results.stoneM3} ลูกบาศก์เมตร</p>
+                  </div>
+                </div>
+
+                {/* Detailed calculation steps */}
+                <h3 className="text-xl font-bold text-blue-700 mb-3">รายละเอียดการคำนวณ:</h3>
+                <ul className="list-disc list-inside text-gray-700 space-y-1">
+                  {results.details.map((detail, index) => (
+                    <li key={index}>{detail}</li>
+                  ))}
+                  <li className="text-sm text-gray-500 mt-4">
+                    <span className="font-semibold">หมายเหตุ:</span> การคำนวณนี้ใช้ค่าประมาณจากหลักเกณฑ์ทั่วไปและมาตรฐาน มยผ. ปริมาณวัสดุจริงอาจแตกต่างกันไปขึ้นอยู่กับคุณสมบัติของวัสดุ, ความชื้น, การออกแบบส่วนผสมที่ละเอียด, และวิธีการก่อสร้าง.
+                  </li>
+                </ul>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default App;
